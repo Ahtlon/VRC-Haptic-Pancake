@@ -320,11 +320,12 @@ class UDPTarget:
         """
         Check if the application is bundled (PyInstaller, etc.).
         
-        For UDP targets, this is not relevant since we don't integrate
-        with OpenVR/SteamVR autostart. Returns True for compatibility.
+        For UDP targets, this property is only used for GUI display purposes
+        and doesn't affect functionality. Returns True for GUI compatibility
+        to avoid showing "app unbundled" messages.
         
         Returns:
-            Always True for UDP targets
+            Always True for UDP targets (for GUI compatibility)
         """
         return True
     
