@@ -146,7 +146,7 @@ class GUIRenderer:
 
         self.layout = []
 
-        self.autostart_chkbox = sg.Checkbox("Start with SteamVR", default=self.config.start_with_steamvr, key=KEY_START_WITH_STEAMVR, enable_events=True, tooltip="Open Haptic Pancake Bridge when opening SteamVR.")
+        self.autostart_chkbox = sg.Checkbox("Start with VR Runtime", default=self.config.start_with_steamvr, key=KEY_START_WITH_STEAMVR, enable_events=True, visible=False, tooltip="Autostart not supported for UDP Target.")
         self.autostart_status_bar = sg.Text('', key=KEY_AUTOSTART_STATUS_BAR)
         self.osc_status_bar = sg.Text(self.cache_osc_status_bar_text, key=KEY_OSC_STATUS_BAR, text_color=self.cache_osc_status_bar_color)
         self.tracker_status_bar = sg.Text('', key=KEY_TRACKER_STATUS_BAR, font='_ 14')
@@ -384,17 +384,12 @@ class GUIRenderer:
                 print("[GUI] Failed to update autostart checkbox.")
 
     def update_autostart_status(self, vr_ready, is_bundled):
-        if not vr_ready:
-            unavailable = True
-            message = "SteamVR closed (open to apply changes)"
-        elif not is_bundled:
-            unavailable = False
-            message = "SteamVR running (app unbundled)"
-        else:
-            unavailable = False
-            message = "SteamVR running"
-
-        text_color = self.theme_color_bad if unavailable else self.theme_color_good
+        # For UDP target, the autostart feature is not applicable
+        # Hide the autostart UI elements by showing a simple "Target Ready" message
+        unavailable = False
+        message = "UDP Target Ready"
+        
+        text_color = self.theme_color_good
 
         if self.window is None:
             self.autostart_status_bar.DisplayText = message

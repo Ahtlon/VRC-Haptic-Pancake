@@ -3,12 +3,12 @@ from app_gui import GUIRenderer
 from server_base import ServerBase
 from server_osc import VRChatOSCReceiver
 from server_websocket import ResoniteWebSocketServer
-from target_ovr import OpenVRHandler
+from target_udp import UDPTarget
 import traceback
 import platform
 
 bridge_server: ServerBase = None
-vr: OpenVRHandler = None
+vr: UDPTarget = None
 config: AppConfig = None
 gui: GUIRenderer = None
 external_id: int = 0
@@ -34,9 +34,9 @@ def main():
 
     print("[Main] Bridge server started")
 
-    # Init OpenVR
+    # Init UDP Target
     global vr
-    vr = OpenVRHandler(config)
+    vr = UDPTarget(config)
 
     # Add trackers to GUI, update status
     refresh_vr()

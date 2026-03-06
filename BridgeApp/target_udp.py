@@ -273,6 +273,87 @@ class UDPTarget:
         """
         return self.devices
     
+    def query_devices(self, quiet_refresh: bool = False) -> List[VRTracker]:
+        """
+        Query and return available UDP devices from configuration.
+        
+        For UDP targets, devices are populated from the configuration file
+        (tracker_config_dict) rather than being discovered like OpenVR devices.
+        This method loads devices that have a udp_ip configured.
+        
+        Args:
+            quiet_refresh: If True, suppress log output
+            
+        Returns:
+            List of VRTracker objects with UDP configuration
+        """
+        # Load devices from config that have UDP IP configured
+        for serial, tracker_config in self.config.tracker_config_dict.items():
+            if tracker_config.udp_ip:  # Only add devices with UDP IP configured
+                # Check if device already exists
+                if serial not in [d.serial for d in self.devices]:
+                    # Create a tracker with a reasonable index
+                    index = len(self.devices)
+                    model = "UDP Haptic Device"
+                    self.add_device(serial, model, index)
+                    if not quiet_refresh:
+                        print(f"[UDPTarget] Loaded UDP device from config: {serial} -> {tracker_config.udp_ip}:{tracker_config.udp_port}")
+        
+        return self.devices
+    
+    @property
+    def is_alive(self) -> bool:
+        """
+        Check if the UDP target is operational.
+        
+        For UDP targets, we're always "alive" since we don't depend on
+        an external runtime like OpenVR. Returns True as long as the
+        target is initialized.
+        
+        Returns:
+            Always True for UDP targets
+        """
+        return True
+    
+    @property
+    def is_app_bundled(self) -> bool:
+        """
+        Check if the application is bundled (PyInstaller, etc.).
+        
+        For UDP targets, this is not relevant since we don't integrate
+        with OpenVR/SteamVR autostart. Returns True for compatibility.
+        
+        Returns:
+            Always True for UDP targets
+        """
+        return True
+    
+    def resync_autostart(self) -> bool:
+        """
+        Resync autostart configuration with the VR runtime.
+        
+        UDP targets don't support autostart functionality since they
+        don't integrate with OpenVR/SteamVR.
+        
+        Returns:
+            Always False (no autostart changes)
+        """
+        return False
+    
+    def setup_autostart(self, autostart: bool):
+        """
+        Setup autostart with the VR runtime.
+        
+        UDP targets don't support autostart functionality since they
+        don't integrate with OpenVR/SteamVR. This is a no-op for
+        compatibility with the GUI.
+        
+        Args:
+            autostart: Ignored for UDP targets
+        """
+        # No-op: UDP targets don't support autostart
+        pass
+    
     def shutdown(self):
         """
         Shut down the UDP target and clean up resources.
