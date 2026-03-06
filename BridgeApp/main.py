@@ -26,7 +26,7 @@ def main():
 
     # Init GUI
     global gui
-    gui = GUIRenderer(config, pulse_test, restart_bridge_server, refresh_vr, add_external_target, setup_autostart)
+    gui = GUIRenderer(config, pulse_test, restart_bridge_server, refresh_vr, add_external_target, setup_autostart, add_new_tracker, remove_tracker)
     print("[Main] GUI initialized")
 
     # Start the Server
@@ -142,6 +142,55 @@ def param_received(address, value):
 
 def setup_autostart(autostart: bool):
     vr.setup_autostart(autostart=autostart)
+
+def add_new_tracker(serial: str, udp_ip: str, udp_port: str, osc_address: str = ""):
+    """Add a new UDP tracker to the configuration"""
+    print(f"[Main] Adding new tracker: {serial} at {udp_ip}:{udp_port}")
+    
+    # Get or create tracker config
+    tracker_config = config.get_tracker_config(serial)
+    
+    # Set UDP settings
+    tracker_config.set_udp_ip(udp_ip)
+    tracker_config.set_udp_port(udp_port)
+    
+    # Set OSC address if provided
+    if osc_address:
+        tracker_config.set_address(osc_address)
+    
+    # Save config
+    config.save()
+    
+    # Add device to UDP target
+    vr.add_device(serial, "UDP Haptic Device", len(vr.devices))
+    
+    # Refresh GUI to show the new tracker
+    refresh_vr()
+    
+    print(f"[Main] Tracker {serial} added successfully")
+
+def remove_tracker(serial: str):
+    """Remove a tracker from the configuration"""
+    print(f"[Main] Removing tracker: {serial}")
+    
+    # Remove from UDP target
+    if serial in [d.serial for d in vr.devices]:
+        vr.remove_device(serial)
+    
+    # Remove from config
+    if serial in config.tracker_config_dict:
+        del config.tracker_config_dict[serial]
+        config.save()
+    
+    # Remove from GUI tracker list
+    if serial in gui.trackers:
+        gui.trackers.remove(serial)
+    
+    # Refresh GUI to update the display
+    gui.recreate_window()
+    refresh_vr()
+    
+    print(f"[Main] Tracker {serial} removed successfully")
 
 if __name__ == '__main__':
     try:
