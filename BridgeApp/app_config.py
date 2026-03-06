@@ -49,6 +49,8 @@ class TrackerConfig(BaseModel):
     multiplier_override: float = 1.0
     pattern_override: str = "None"
     battery_threshold: int = 20
+    udp_ip: str = ""  # IP address for UDP haptic receiver
+    udp_port: int = 6969  # Port for UDP haptic receiver
     
     def get_address_str(self):
         if len(self.address_list) == 0:
@@ -75,6 +77,36 @@ class TrackerConfig(BaseModel):
             self.battery_threshold = int(value)
         except ValueError:
             self.battery_threshold = 20
+
+    def set_udp_ip(self, value: str):
+        """
+        Set the UDP IP address for this tracker's haptic receiver.
+        
+        Args:
+            value: IP address as a string (e.g., "192.168.1.100")
+        """
+        if value is None:
+            self.udp_ip = ""
+        else:
+            self.udp_ip = str(value).strip()
+    
+    def set_udp_port(self, value):
+        """
+        Set the UDP port for this tracker's haptic receiver.
+        
+        Args:
+            value: Port number (1-65535)
+        """
+        if value is None:
+            return
+        try:
+            port = int(value)
+            if 1 <= port <= 65535:
+                self.udp_port = port
+            else:
+                self.udp_port = 6969
+        except ValueError:
+            self.udp_port = 6969
 
 
 class PatternConfig(BaseModel):

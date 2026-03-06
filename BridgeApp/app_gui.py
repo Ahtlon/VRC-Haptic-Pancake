@@ -62,6 +62,10 @@ KEY_BTN_SETUP = '-BTN-SETUP-'
 KEY_BTN_TEST = '-BTN-TEST-'
 KEY_BTN_CALIBRATE = '-BTN-CALIBRATE-'
 KEY_BTN_ADD_EXTERNAL = '-BTN-ADD-EXTERNAL-'
+KEY_BTN_ADD_TRACKER = '-BTN-ADD-TRACKER-'
+KEY_BTN_REMOVE_TRACKER = '-BTN-REMOVE-TRACKER-'
+KEY_UDP_IP = '-UDP-IP-'
+KEY_UDP_PORT = '-UDP-PORT-'
 KEY_BATTERY_THRESHOLD = '-BATTERY-'
 KEY_START_WITH_STEAMVR = '-START-WITH-STEAMVR-'
 KEY_AUTOSTART_STATUS_BAR = '-AUTOSTART-STATUS-BAR-'
@@ -92,12 +96,15 @@ DEFAULT_THEME="DarkAmber"
 
 class GUIRenderer:
     def __init__(self, app_config: AppConfig, tracker_test_event,
-                 restart_osc_event, refresh_vr_event, add_external_event, setup_autostart_event):
+                 restart_osc_event, refresh_vr_event, add_external_event, setup_autostart_event,
+                 add_tracker_event, remove_tracker_event):
         self.tracker_test_event = tracker_test_event
         self.restart_osc_event = restart_osc_event
         self.refresh_vr_event = refresh_vr_event
         self.add_external_event = add_external_event
         self.setup_autostart_event = setup_autostart_event
+        self.add_tracker_event = add_tracker_event
+        self.remove_tracker_event = remove_tracker_event
 
         # HACK: Py/FreeSimpleGUI has a fun bug where if the main thread gets
         # blocked for some time when changing properties (e.g. TextColor), the
@@ -146,7 +153,8 @@ class GUIRenderer:
 
         self.layout = []
 
-        self.autostart_chkbox = sg.Checkbox("Start with SteamVR", default=self.config.start_with_steamvr, key=KEY_START_WITH_STEAMVR, enable_events=True, tooltip="Open Haptic Pancake Bridge when opening SteamVR.")
+        # Note: Autostart is not supported for UDP targets, checkbox is hidden
+        self.autostart_chkbox = sg.Checkbox("Autostart (not available)", default=False, key=KEY_START_WITH_STEAMVR, visible=False, disabled=True, tooltip="Autostart not supported for UDP Target.")
         self.autostart_status_bar = sg.Text('', key=KEY_AUTOSTART_STATUS_BAR)
         self.osc_status_bar = sg.Text(self.cache_osc_status_bar_text, key=KEY_OSC_STATUS_BAR, text_color=self.cache_osc_status_bar_color)
         self.tracker_status_bar = sg.Text('', key=KEY_TRACKER_STATUS_BAR, font='_ 14')
@@ -205,7 +213,9 @@ class GUIRenderer:
              sg.Text("(seconds)")],
             # Padding from "Stop stuck haptics" checkbox removes the need for this:
             #[self.small_vertical_space()],
-            [sg.Text('Devices:', font='_ 14'), self.tracker_status_bar, sg.Push(), sg.Button("Refresh", key=KEY_BTN_REFRESH)],
+            [sg.Text('Devices:', font='_ 14'), self.tracker_status_bar, sg.Push(), 
+             sg.Button("Add Tracker", key=KEY_BTN_ADD_TRACKER, tooltip="Add a new UDP haptic tracker"),
+             sg.Button("Refresh", key=KEY_BTN_REFRESH)],
             # add_external_button],
             [self.tracker_frame],
             [sg.HSep()],
@@ -273,6 +283,8 @@ class GUIRenderer:
         dev_config = self.config.get_tracker_config(tracker_serial)
         vib_multiplier = dev_config.multiplier_override
         battery_threshold = dev_config.battery_threshold
+        udp_ip = dev_config.udp_ip if dev_config.udp_ip else ""
+        udp_port = dev_config.udp_port
         multiplier_tooltip = "The haptic intensity for this tracker will be multiplied by this number"
 
         tr = [sg.Text(" "),
@@ -284,6 +296,16 @@ class GUIRenderer:
               sg.Text("Pulse multiplier:", tooltip=multiplier_tooltip, pad=0),
               sg.InputText(vib_multiplier, k=(KEY_VIB_STR_OVERRIDE, tracker_serial), enable_events=True,
                            size=4, tooltip=multiplier_tooltip),
+              sg.VSeparator(),
+              sg.Text("UDP IP:", tooltip="IP address of the UDP haptic receiver", pad=0),
+              sg.InputText(udp_ip, k=(KEY_UDP_IP, tracker_serial), enable_events=True,
+                           size=15, tooltip="IP address (e.g., 192.168.1.100)"),
+              sg.Text("Port:", tooltip="UDP port", pad=0),
+              sg.InputText(udp_port, k=(KEY_UDP_PORT, tracker_serial), enable_events=True,
+                           size=5, tooltip="Port number (e.g., 6969)"),
+              sg.VSeparator(),
+              sg.Button("Remove", button_color='red', key=(KEY_BTN_REMOVE_TRACKER, tracker_serial),
+                        tooltip="Remove this tracker from configuration"),
               ]
               #sg.Button("Calibrate", button_color='grey', disabled=True, key=(KEY_BTN_CALIBRATE, tracker_serial),
               #          tooltip="Coming soon...")]
@@ -341,6 +363,59 @@ class GUIRenderer:
         self.layout.append([sg.HSep()])
         self.layout.append([sg.Text(message, text_color=self.theme_color_bad)])
 
+    def show_add_tracker_dialog(self):
+        """Show a dialog to add a new UDP tracker"""
+        layout = [
+            [sg.Text('Add New UDP Tracker', font='_ 14')],
+            [sg.Text('Tracker Serial/ID:'), sg.InputText(key='tracker_serial', size=30)],
+            [sg.Text('UDP IP Address:'), sg.InputText(key='udp_ip', default_text='192.168.1.100', size=30)],
+            [sg.Text('UDP Port:'), sg.InputText(key='udp_port', default_text='6969', size=10)],
+            [sg.Text('(Optional) OSC Address:'), sg.InputText(key='osc_address', size=30)],
+            [sg.Button('Add'), sg.Button('Cancel')]
+        ]
+        
+        dialog = sg.Window('Add Tracker', layout, modal=True, finalize=True)
+        
+        while True:
+            event, values = dialog.read()
+            
+            if event == sg.WIN_CLOSED or event == 'Cancel':
+                dialog.close()
+                return
+            
+            if event == 'Add':
+                serial = values['tracker_serial'].strip()
+                udp_ip = values['udp_ip'].strip()
+                udp_port = values['udp_port'].strip()
+                osc_address = values['osc_address'].strip()
+                
+                # Validate inputs
+                if not serial:
+                    sg.popup_error('Please enter a tracker serial/ID')
+                    continue
+                    
+                if not udp_ip:
+                    sg.popup_error('Please enter a UDP IP address')
+                    continue
+                
+                if not udp_port:
+                    sg.popup_error('Please enter a UDP port')
+                    continue
+                
+                try:
+                    port_num = int(udp_port)
+                    if port_num < 1 or port_num > 65535:
+                        sg.popup_error('Port must be between 1 and 65535')
+                        continue
+                except ValueError:
+                    sg.popup_error('Port must be a valid number')
+                    continue
+                
+                # Call the add tracker event
+                dialog.close()
+                self.add_tracker_event(serial, udp_ip, udp_port, osc_address)
+                return
+
     def update_osc_status_bar(self, message, is_error=False, is_busy=False):
         text_color = self.theme_color_bad if is_error else self.theme_color_good
         # Update cache
@@ -384,17 +459,12 @@ class GUIRenderer:
                 print("[GUI] Failed to update autostart checkbox.")
 
     def update_autostart_status(self, vr_ready, is_bundled):
-        if not vr_ready:
-            unavailable = True
-            message = "SteamVR closed (open to apply changes)"
-        elif not is_bundled:
-            unavailable = False
-            message = "SteamVR running (app unbundled)"
-        else:
-            unavailable = False
-            message = "SteamVR running"
-
-        text_color = self.theme_color_bad if unavailable else self.theme_color_good
+        # For UDP target, the autostart feature is not applicable
+        # Hide the autostart UI elements by showing a simple "Target Ready" message
+        unavailable = False
+        message = "UDP Target Ready"
+        
+        text_color = self.theme_color_good
 
         if self.window is None:
             self.autostart_status_bar.DisplayText = message
@@ -515,6 +585,10 @@ class GUIRenderer:
             self.tracker_test_event(event[1])
         elif event[0] == KEY_BTN_SETUP:
             self.setup_tracker_preset(event[1])
+        elif event[0] == KEY_BTN_REMOVE_TRACKER:
+            self.remove_tracker_event(event[1])
+        elif event == KEY_BTN_ADD_TRACKER:
+            self.show_add_tracker_dialog()
         elif event == KEY_BTN_ADD_EXTERNAL:
             self.add_external_event(values[KEY_BTN_ADD_EXTERNAL])
         elif event == KEY_BTN_APPLY:
@@ -681,6 +755,16 @@ class GUIRenderer:
         key = (KEY_BATTERY_THRESHOLD, tracker)
         if key in values:
             self.config.get_tracker_config(tracker).set_battery_threshold((values[key]))
+
+        # Update UDP IP
+        key = (KEY_UDP_IP, tracker)
+        if key in values:
+            self.config.get_tracker_config(tracker).set_udp_ip(values[key])
+
+        # Update UDP Port
+        key = (KEY_UDP_PORT, tracker)
+        if key in values:
+            self.config.get_tracker_config(tracker).set_udp_port(values[key])
 
     def update_pattern_config(self, values, index: int, key: str):
         self.config.pattern_config_list[index].pattern = values[key + KEY_VIB_PATTERN]
