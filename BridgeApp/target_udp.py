@@ -53,6 +53,7 @@ class UDPTarget:
         self.sockets: Dict[str, socket.socket] = {}
         self.packet_numbers: Dict[str, int] = {}  # Track packet sequence per device
         self.lock = threading.Lock()  # Thread safety for socket operations
+        self.next_device_index: int = 0  # Counter for device indices
         
     def add_device(self, serial: str, model: str, index: int = 0):
         """
@@ -292,8 +293,9 @@ class UDPTarget:
             if tracker_config.udp_ip:  # Only add devices with UDP IP configured
                 # Check if device already exists
                 if serial not in [d.serial for d in self.devices]:
-                    # Create a tracker with a reasonable index
-                    index = len(self.devices)
+                    # Use incrementing counter for consistent indexing
+                    index = self.next_device_index
+                    self.next_device_index += 1
                     model = "UDP Haptic Device"
                     self.add_device(serial, model, index)
                     if not quiet_refresh:

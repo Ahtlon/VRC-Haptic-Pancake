@@ -147,7 +147,7 @@ class GUIRenderer:
         self.layout = []
 
         # Note: Autostart is not supported for UDP targets, checkbox is hidden
-        self.autostart_chkbox = sg.Checkbox("Autostart (not available)", default=False, key=KEY_START_WITH_STEAMVR, enable_events=True, visible=False, disabled=True, tooltip="Autostart not supported for UDP Target.")
+        self.autostart_chkbox = sg.Checkbox("Autostart (not available)", default=False, key=KEY_START_WITH_STEAMVR, visible=False, disabled=True, tooltip="Autostart not supported for UDP Target.")
         self.autostart_status_bar = sg.Text('', key=KEY_AUTOSTART_STATUS_BAR)
         self.osc_status_bar = sg.Text(self.cache_osc_status_bar_text, key=KEY_OSC_STATUS_BAR, text_color=self.cache_osc_status_bar_color)
         self.tracker_status_bar = sg.Text('', key=KEY_TRACKER_STATUS_BAR, font='_ 14')
